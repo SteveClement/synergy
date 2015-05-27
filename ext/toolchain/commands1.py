@@ -431,16 +431,17 @@ class InternalCommands:
 			cmake_args += ' -DCMAKE_BUILD_TYPE=' + target.capitalize()
 			
 		elif sys.platform == "darwin":
-			macSdkMatch = re.match("(\d+)\.(\d+)", self.macSdk)
-			if not macSdkMatch:
-				raise Exception("unknown osx version: " + self.macSdk)
-
 			sdkDir = self.getMacSdkDir()
 			cmake_args += " -DCMAKE_OSX_SYSROOT=" + sdkDir
 			cmake_args += " -DCMAKE_OSX_DEPLOYMENT_TARGET=" + self.macSdk
-			cmake_args += " -DOSX_TARGET_MAJOR=" + macSdkMatch.group(1)
-			cmake_args += " -DOSX_TARGET_MINOR=" + macSdkMatch.group(2)
-		
+
+		macSdkMatch = re.match("(\d+)\.(\d+)", self.macSdk)
+		if not macSdkMatch:
+			raise Exception("unknown osx version: " + self.macSdk)
+
+		cmake_args += " -DOSX_TARGET_MAJOR=" + macSdkMatch.group(1)
+		cmake_args += " -DOSX_TARGET_MINOR=" + macSdkMatch.group(2)
+
 		# if not visual studio, use parent dir
 		sourceDir = generator.getSourceDir()
 
@@ -549,7 +550,7 @@ class InternalCommands:
 		if os.path.exists(sdkPath):
 			return sdkPath
 
-		return "/Developer/SDKs/" + sdkDirName + ".sdk"
+		return os.popen('xcodebuild -version -sdk macosx' + self.macSdk + ' Path').read().strip()
 	
 	# http://tinyurl.com/cs2rxxb
 	def fixCmakeEclipseBug(self):
@@ -760,7 +761,7 @@ class InternalCommands:
 				frameworkRootDir = "/Library/Frameworks"
 			else:
 				# TODO: auto-detect, qt can now be installed anywhere.
-				frameworkRootDir = "/Developer/Qt5.2.1/5.2.1/clang_64/lib"
+				frameworkRootDir = "/usr/local/Cellar/qt/4.8.6/Framework"
 
 			target = bundleTargetDir + "/Contents/Frameworks"
 
