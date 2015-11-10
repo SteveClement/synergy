@@ -39,18 +39,13 @@
 #include "base/IEventQueue.h"
 #include "base/TMethodEventJob.h"
 #include "base/TMethodJob.h"
+#include "common/PluginVersion.h"
 #include "common/stdexcept.h"
 
 #include <cstring>
 #include <cstdlib>
 #include <sstream>
 #include <fstream>
-
-#if defined _WIN32
-static const char s_networkSecurity[] = { "ns" };
-#else
-static const char s_networkSecurity[] = { "libns" };
-#endif
 
 //
 // Client
@@ -96,18 +91,18 @@ Client::Client(
 								&Client::handleResume));
 
 	if (m_args.m_enableDragDrop) {
-		m_events->adoptHandler(m_events->forIScreen().fileChunkSending(),
+		m_events->adoptHandler(m_events->forFile().fileChunkSending(),
 								this,
 								new TMethodEventJob<Client>(this,
 									&Client::handleFileChunkSending));
-		m_events->adoptHandler(m_events->forIScreen().fileRecieveCompleted(),
+		m_events->adoptHandler(m_events->forFile().fileRecieveCompleted(),
 								this,
 								new TMethodEventJob<Client>(this,
 									&Client::handleFileRecieveCompleted));
 	}
 
 	if (m_args.m_enableCrypto) {
-		m_useSecureNetwork = ARCH->plugin().exists(s_networkSecurity);
+		m_useSecureNetwork = ARCH->plugin().exists(s_pluginNames[kSecureSocket]);
 		if (m_useSecureNetwork == false) {
 			LOG((CLOG_NOTE "crypto disabled because of ns plugin not available"));
 		}
@@ -257,6 +252,11 @@ Client::enter(SInt32 xAbs, SInt32 yAbs, UInt32, KeyModifierMask mask, bool)
 	m_active = true;
 	m_screen->mouseMove(xAbs, yAbs);
 	m_screen->enter(mask);
+
+	if (m_sendFileThread != NULL) {
+		StreamChunker::interruptFile();
+		m_sendFileThread = NULL;
+	}
 }
 
 bool
@@ -265,16 +265,23 @@ Client::leave()
 	m_screen->leave();
 
 	m_active = false;
-	
+
 	if (m_sendClipboardThread != NULL) {
 		StreamChunker::interruptClipboard();
+		m_sendClipboardThread->wait();
+		m_sendClipboardThread = NULL;
 	}
-	
+
 	m_sendClipboardThread = new Thread(
 								new TMethodJob<Client>(
 									this,
 									&Client::sendClipboardThread,
 									NULL));
+
+	if (!m_receivedFileData.empty()) {
+		m_receivedFileData.clear();
+		LOG((CLOG_DEBUG "file transmission interrupted"));
+	}
 
 	return true;
 }
@@ -577,7 +584,7 @@ Client::cleanupStream()
 	// we need to tell the dynamic lib that allocated this object
 	// to do the deletion.
 	if (m_useSecureNetwork) {
-		ARCH->plugin().invoke(s_networkSecurity, "deleteSocket", NULL);
+		ARCH->plugin().invoke(s_pluginNames[kSecureSocket], "deleteSocket", NULL);
 	}
 }
 
@@ -763,6 +770,8 @@ Client::sendClipboardThread(void*)
 			sendClipboard(id);
 		}
 	}
+
+	m_sendClipboardThread = NULL;
 }
 
 void

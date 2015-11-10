@@ -18,6 +18,7 @@
 #include "synergy/ToolApp.h"
 
 #include "synergy/ArgParser.h"
+#include "synergy/SubscriptionManager.h"
 #include "arch/Arch.h"
 #include "base/Log.h"
 #include "base/String.h"
@@ -63,8 +64,8 @@ ToolApp::run(int argc, char** argv)
 				return kExitFailed;
 			}
 			else {
-				// HACK: send to standard out so watchdog can parse.
-				std::cout << "activeDesktop:" << name.c_str() << std::endl;
+				String output = synergy::string::sprintf("activeDesktop:%s", name.c_str());
+				LOG((CLOG_INFO "%s", output.c_str()));
 			}
 #endif
 		}
@@ -74,6 +75,9 @@ ToolApp::run(int argc, char** argv)
 		else if (m_args.m_getPluginList) {
 			getPluginList();
 		}
+		else if (m_args.m_getInstalledDir) {
+			std::cout << ARCH->getInstalledDirectory() << std::endl;
+		}
 		else if (m_args.m_getPluginDir) {
 			std::cout << ARCH->getPluginDirectory() << std::endl;
 		}
@@ -82,6 +86,36 @@ ToolApp::run(int argc, char** argv)
 		}
 		else if (m_args.m_getArch) {
 			std::cout << ARCH->getPlatformName() << std::endl;
+		}
+		else if (!m_args.m_subscriptionSerial.empty()) {
+			try {
+				SubscriptionManager subscriptionManager;
+				subscriptionManager.activate(m_args.m_subscriptionSerial);
+			}
+			catch (XSubscription& e) {
+				LOG((CLOG_CRIT "subscription error: %s", e.what()));
+				return kExitSubscription;
+			}
+		}
+		else if (m_args.m_getSubscriptionFilename) {
+			try {
+				SubscriptionManager subscriptionManager;
+				subscriptionManager.printFilename();
+			}
+			catch (XSubscription& e) {
+				LOG((CLOG_CRIT "subscription error: %s", e.what()));
+				return kExitSubscription;
+			}
+		}
+		else if (m_args.m_checkSubscription) {
+			try {
+				SubscriptionManager subscriptionManager;
+				subscriptionManager.checkFile("");
+			}
+			catch (XSubscription& e) {
+				LOG((CLOG_CRIT "subscription error: %s", e.what()));
+				return kExitSubscription;
+			}
 		}
 		else {
 			throw XSynergy("Nothing to do");

@@ -39,9 +39,35 @@ QString CoreInterface::getProfileDir()
 	return run(args);
 }
 
+QString CoreInterface::getInstalledDir()
+{
+	QStringList args("--get-installed-dir");
+	return run(args);
+}
+
 QString CoreInterface::getArch()
 {
 	QStringList args("--get-arch");
+	return run(args);
+}
+
+QString CoreInterface::getSubscriptionFilename()
+{
+	QStringList args("--get-subscription-filename");
+	return run(args);
+}
+
+QString CoreInterface::activateSerial(const QString& serial)
+{
+	QStringList args("--subscription-serial");
+	args << serial;
+
+	return run(args);
+}
+
+QString CoreInterface::checkSubscription()
+{
+	QStringList args("--check-subscription");
 	return run(args);
 }
 
